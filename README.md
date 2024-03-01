@@ -79,7 +79,6 @@ const int NUM_CLASSES(1); // number of object classes
         }
 ```
 
-```
 通过修改`dr.classId`可以指定要跟踪的类别。
 
 
@@ -89,4 +88,3 @@ const int NUM_CLASSES(1); // number of object classes
 - [DeepSORT](https://github.com/shaoshengsong/DeepSORT)
 
 - [ByteTrack-MCMOT-TensorRT](https://github.com/CaptainEven/ByteTrack-MCMOT-TensorRT)
-```
