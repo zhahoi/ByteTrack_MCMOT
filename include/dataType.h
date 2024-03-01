@@ -13,7 +13,7 @@
 
 const int k_feature_dim = 512; //feature dim
 
-const std::string  k_feature_model_path = "C:/CPlusPlus/MCMOT_ByteTrack/weights/feature.onnx";
+// const std::string  k_feature_model_path = "C:/CPlusPlus/MCMOT_ByteTrack/weights/feature.onnx";
 const std::string  k_detect_model_path = "C:/CPlusPlus/MCMOT_ByteTrack/weights/yolov5s.onnx";
 
 typedef Eigen::Matrix<float, 1, 4, Eigen::RowMajor> DETECTBOX;
