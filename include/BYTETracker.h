@@ -70,5 +70,6 @@ private:
 
 	byte_kalman::ByteKalmanFilter m_kalman_filter;
 
+	// cls_id_set
+	std::set<int> cls_id_set;
 };
-
