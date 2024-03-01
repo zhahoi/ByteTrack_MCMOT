@@ -1,4 +1,4 @@
-# DeepSORT
+# ByteTrack_MCMOT
 
 # MOT(Multi-object tracking) and MCMOT(Multi-class Multi-object tracking ) using yolov5 with C++ support bytetrack
 
