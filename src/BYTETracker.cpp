@@ -63,7 +63,7 @@ const char* class_names[80] = {
 		 "potted plant",
 		 "bed",
 		 "dining table",
-		 "toilet",  
+		 "toilet",
 		 "tv",
 		 "laptop",
 		 "mouse",
@@ -72,8 +72,8 @@ const char* class_names[80] = {
 		 "cell phone",
 		 "microwave",
 		 "oven",
-		 "toaster",    
-		 "sink",      
+		 "toaster",
+		 "sink",
 		 "refrigerator",
 		 "book",
 		 "clock",
@@ -81,7 +81,7 @@ const char* class_names[80] = {
 		 "scissors",
 		 "teddy bear",
 		 "hair drier",
-		 "toothbrush"   
+		 "toothbrush"
 };
 const size_t num_classes = sizeof(class_names) / sizeof(class_names[0]);
 static std::vector<std::string> CLASSES(class_names, class_names + num_classes);
@@ -146,7 +146,7 @@ std::unordered_map<int, std::vector<STrack>> BYTETracker::updateMCMOT(std::vecto
 	std::unordered_map<int, std::vector<std::vector<float>>> bboxes_dict;
 	std::unordered_map<int, std::vector<float>> scores_dict;
 
-	// ¶Ô¼ì²â³öµÄÄ¿±ê¿ò½øĞĞ´¦Àí
+	// å¯¹æ£€æµ‹å‡ºçš„ç›®æ ‡æ¡†è¿›è¡Œå¤„ç†
 	if (objects.size() > 0)
 	{
 		for (int i = 0; i < objects.size(); i++)
@@ -161,22 +161,24 @@ std::unordered_map<int, std::vector<STrack>> BYTETracker::updateMCMOT(std::vecto
 			const float& score = objects[i].confidence;
 			const int& cls_id = objects[i].classId;
 
-			printf("-----------------class id : %d \n", cls_id);
+			// printf("-----------------class id : %d \n", cls_id);
 
 			bboxes_dict[cls_id].push_back(tlbr_);
 			scores_dict[cls_id].push_back(score);
+
+			cls_id_set.insert(cls_id);  // store class id
 		}
 	}
 
 	// ---------- Processing each object classes
 	// ----- Build bbox_dict and score_dict
-	for (int cls_id = 0; cls_id < this->m_N_CLASSES; cls_id++)
-	{
+	for (std::set<int>::iterator it = cls_id_set.begin(); it != cls_id_set.end(); ++it) {
+		
 		// class bboxes
-		std::vector<std::vector<float>>& cls_bboxes = bboxes_dict[cls_id];
+		std::vector<std::vector<float>>& cls_bboxes = bboxes_dict[*it];
 
 		// class scores
-		const std::vector<float>& cls_scores = scores_dict[cls_id];
+		const std::vector<float>& cls_scores = scores_dict[*it];
 
 		// skip classes of empty detections of objects
 		if (cls_bboxes.size() == 0)
@@ -198,7 +200,7 @@ std::unordered_map<int, std::vector<STrack>> BYTETracker::updateMCMOT(std::vecto
 			std::vector<float>& tlbr_ = cls_bboxes[i];
 			const float& score = cls_scores[i];
 
-			STrack strack(STrack::tlbr_to_tlwh(tlbr_), score, cls_id);
+			STrack strack(STrack::tlbr_to_tlwh(tlbr_), score, *it);
 			if (score > this->m_high_det_thresh)  // high confidence dets
 			{
 				detections.push_back(strack);
@@ -209,123 +211,123 @@ std::unordered_map<int, std::vector<STrack>> BYTETracker::updateMCMOT(std::vecto
 			}
 		}
 
-		// Add newly detected tracklets to tracked_stracks ½«ĞÂ¼ì²â³öµÄ¹ì¼£¼ÓÈëµ½×·×ÙµÄ¹ì¼£
-		for (int i = 0; i < this->m_tracked_stracks_dict[cls_id].size(); i++)
+		// Add newly detected tracklets to tracked_stracks å°†æ–°æ£€æµ‹å‡ºçš„è½¨è¿¹åŠ å…¥åˆ°è¿½è¸ªçš„è½¨è¿¹
+		for (int i = 0; i < this->m_tracked_stracks_dict[*it].size(); i++)
 		{
-			// Èç¹û¹ì¼£Ã»ÓĞ±»¼¤»î£¬½«¸Ã¹ì¼£·Åµ½unconfirmedÀïÃæ
-			if (!this->m_tracked_stracks_dict[cls_id][i].is_activated)
-				unconfirmed[cls_id].push_back(&this->m_tracked_stracks_dict[cls_id][i]);
-			// Èç¹û¼¤»îÁË£¬Ö±½Ó½«Æä·Åµ½tracked_stracksÖĞµÄ
+			// å¦‚æœè½¨è¿¹æ²¡æœ‰è¢«æ¿€æ´»ï¼Œå°†è¯¥è½¨è¿¹æ”¾åˆ°unconfirmedé‡Œé¢
+			if (!this->m_tracked_stracks_dict[*it][i].is_activated)
+				unconfirmed[*it].push_back(&this->m_tracked_stracks_dict[*it][i]);
+			// å¦‚æœæ¿€æ´»äº†ï¼Œç›´æ¥å°†å…¶æ”¾åˆ°tracked_stracksä¸­çš„
 			else
-				tracked_stracks[cls_id].push_back(&this->m_tracked_stracks_dict[cls_id][i]);
+				tracked_stracks[*it].push_back(&this->m_tracked_stracks_dict[*it][i]);
 		}
 
 		////////////////// Step 2: First association, with IoU //////////////////
-		// ½«ÄÇĞ©Ê§È¥×·×ÙµÄtrack(ÉÙÓÚ30Ö¡)·Åµ½ĞèÒª×·×ÙµÄstracksµÄ¼¯ºÏÖĞ
-		strack_pool[cls_id] = joint_stracks(tracked_stracks[cls_id], this->m_lost_stracks_dict[cls_id]);
-		STrack::multi_predict(strack_pool[cls_id], this->m_kalman_filter);  // Ê¹ÓÃ¿¨¶ûÂüÂË²¨Ô¤²âÏÂÒ»Ö¡Ä¿±ê¿ò³öÏÖµÄÎ»ÖÃ
+		// å°†é‚£äº›å¤±å»è¿½è¸ªçš„track(å°‘äº30å¸§)æ”¾åˆ°éœ€è¦è¿½è¸ªçš„stracksçš„é›†åˆä¸­
+		strack_pool[*it] = joint_stracks(tracked_stracks[*it], this->m_lost_stracks_dict[*it]);
+		STrack::multi_predict(strack_pool[*it], this->m_kalman_filter);  // ä½¿ç”¨å¡å°”æ›¼æ»¤æ³¢é¢„æµ‹ä¸‹ä¸€å¸§ç›®æ ‡æ¡†å‡ºç°çš„ä½ç½®
 
 		std::vector< std::vector<float> > dists;
 		int dist_size = 0, dist_size_size = 0;
-		// ¼ÆËãÔ¤²âµÄÄ¿±ê¿òºÍ¸ßÖÃĞÅ¶ÈÄ¿±ê¿òÖ®¼äµÄiou, »ñÈ¡¾àÀë
-		dists = iou_distance(strack_pool[cls_id], detections, dist_size, dist_size_size);
+		// è®¡ç®—é¢„æµ‹çš„ç›®æ ‡æ¡†å’Œé«˜ç½®ä¿¡åº¦ç›®æ ‡æ¡†ä¹‹é—´çš„iou, è·å–è·ç¦»
+		dists = iou_distance(strack_pool[*it], detections, dist_size, dist_size_size);
 
-		// Ê¹ÓÃĞÙÑÀÀûËã·¨¶ÔÔ¤²âÄ¿±ê¿òºÍ¸ßÖÃĞÅ¶ÈÄ¿±ê¿ò½øĞĞÆ¥Åä
+		// ä½¿ç”¨åŒˆç‰™åˆ©ç®—æ³•å¯¹é¢„æµ‹ç›®æ ‡æ¡†å’Œé«˜ç½®ä¿¡åº¦ç›®æ ‡æ¡†è¿›è¡ŒåŒ¹é…
 		std::vector< std::vector<int> > matches;
 		std::vector<int> u_track, u_detection;
 		linear_assignment(dists, dist_size, dist_size_size, this->m_high_match_thresh, matches, u_track, u_detection);
 
-		// ÏÈ±éÀúÄÇĞ©ÒÑ¾­³É¹¦Æ¥ÅäµÄÄ¿±ê¿ò
+		// å…ˆéå†é‚£äº›å·²ç»æˆåŠŸåŒ¹é…çš„ç›®æ ‡æ¡†
 		for (int i = 0; i < matches.size(); i++)
 		{
-			STrack* track = strack_pool[cls_id][matches[i][0]];
+			STrack* track = strack_pool[*it][matches[i][0]];
 			STrack* det = &detections[matches[i][1]];
-			// Èç¹ûÆ¥ÅäµÄtrackÒÑ¾­±»×·×Ù¹ı
+			// å¦‚æœåŒ¹é…çš„trackå·²ç»è¢«è¿½è¸ªè¿‡
 			if (track->state == TrackState::Tracked)
 			{
-				// ¸üĞÂdet£¬¸³Óèframe_id
+				// æ›´æ–°detï¼Œèµ‹äºˆframe_id
 				track->update(*det, this->m_frame_id);
-				// ½«track·Åµ½activated_stracks¹¤×÷
-				activated_stracks[cls_id].push_back(*track);
+				// å°†trackæ”¾åˆ°activated_strackså·¥ä½œ
+				activated_stracks[*it].push_back(*track);
 			}
 			else
 			{
 				track->re_activate(*det, this->m_frame_id, false);
-				// ½«ÖØĞÂ±»Æ¥ÅäµÄstrack·Åµ½refind_stracksÖĞ
-				refind_stracks[cls_id].push_back(*track);
+				// å°†é‡æ–°è¢«åŒ¹é…çš„strackæ”¾åˆ°refind_stracksä¸­
+				refind_stracks[*it].push_back(*track);
 			}
 		}
 
 		////////////////// Step 3: Second association, using low score dets //////////////////
-		// ±éÀúÄÇĞ©¸ßÖÃĞÅ¶È¿òÖĞÎ´Æ¥ÅäµÄÄ¿±ê¿ò£¬½«Æä·Åµ½detections_cpÖĞ
+		// éå†é‚£äº›é«˜ç½®ä¿¡åº¦æ¡†ä¸­æœªåŒ¹é…çš„ç›®æ ‡æ¡†ï¼Œå°†å…¶æ”¾åˆ°detections_cpä¸­
 		for (int i = 0; i < u_detection.size(); i++)
 		{
 			detections_cp.push_back(detections[u_detection[i]]);
 		}
-		// ´¦ÀíÄÇĞ©µÍÖÃĞÅ¶ÈµÄÄ¿±ê¿ò
+		// å¤„ç†é‚£äº›ä½ç½®ä¿¡åº¦çš„ç›®æ ‡æ¡†
 		detections.clear();
 		detections.assign(detections_low.begin(), detections_low.end());
 
-		// ±éÀúÄÇĞ©ÏÈÇ°Î´Æ¥ÅäµÄtrack
+		// éå†é‚£äº›å…ˆå‰æœªåŒ¹é…çš„track
 		for (int i = 0; i < u_track.size(); i++)
 		{
-			// Èç¹ûµ±Ç°Î´Æ¥ÅäµÄtrackµÄ×´Ì¬ÏÈÇ°Îªtracked×´Ì¬£¨¾ÍÊÇÏÈÇ°ÒÑ¾­³É¹¦Æ¥ÅäÁË£©
-			if (strack_pool[cls_id][u_track[i]]->state == TrackState::Tracked)
+			// å¦‚æœå½“å‰æœªåŒ¹é…çš„trackçš„çŠ¶æ€å…ˆå‰ä¸ºtrackedçŠ¶æ€ï¼ˆå°±æ˜¯å…ˆå‰å·²ç»æˆåŠŸåŒ¹é…äº†ï¼‰
+			if (strack_pool[*it][u_track[i]]->state == TrackState::Tracked)
 			{
-				// ½«Æä·Åµ½r_tracked_stracksÖĞ
-				r_tracked_stracks.push_back(strack_pool[cls_id][u_track[i]]);
+				// å°†å…¶æ”¾åˆ°r_tracked_stracksä¸­
+				r_tracked_stracks.push_back(strack_pool[*it][u_track[i]]);
 			}
 		}
 
-		// ¼ÆËãÏÈÇ°Î´³É¹¦Æ¥ÅäµÄtrackºÍµÍÖÃĞÅ¶ÈÄ¿±ê¿òÖ®¼äµÄiou_distance
+		// è®¡ç®—å…ˆå‰æœªæˆåŠŸåŒ¹é…çš„trackå’Œä½ç½®ä¿¡åº¦ç›®æ ‡æ¡†ä¹‹é—´çš„iou_distance
 		dists.clear();
 		dists = iou_distance(r_tracked_stracks, detections, dist_size, dist_size_size);
 
-		// Ê¹ÓÃĞÙÑÀÀûËã·¨½øĞĞÆ¥Åä
+		// ä½¿ç”¨åŒˆç‰™åˆ©ç®—æ³•è¿›è¡ŒåŒ¹é…
 		matches.clear();
 		u_track.clear();
 		u_detection.clear();
 		linear_assignment(dists, dist_size, dist_size_size, this->m_low_match_thresh, matches, u_track, u_detection);
 
-		// ±éÀúÄÇĞ©³É¹¦Æ¥ÅäµÄtrackºÍÄ¿±ê¿ò
+		// éå†é‚£äº›æˆåŠŸåŒ¹é…çš„trackå’Œç›®æ ‡æ¡†
 		for (int i = 0; i < matches.size(); i++)
 		{
 			STrack* track = r_tracked_stracks[matches[i][0]];
 			STrack* det = &detections[matches[i][1]];
-			// Èç¹ûÏÈÇ°Î´Æ¥Åätrack×´Ì¬ÊÇtrackedµÄ×´Ì¬£¬½«trackÖØĞÂ¼¤»î
+			// å¦‚æœå…ˆå‰æœªåŒ¹é…trackçŠ¶æ€æ˜¯trackedçš„çŠ¶æ€ï¼Œå°†tracké‡æ–°æ¿€æ´»
 			if (track->state == TrackState::Tracked)
 			{
 				track->update(*det, this->m_frame_id);
-				activated_stracks[cls_id].push_back(*track);
+				activated_stracks[*it].push_back(*track);
 			}
 			else
 			{
 				track->re_activate(*det, this->m_frame_id, false);
-				refind_stracks[cls_id].push_back(*track);
+				refind_stracks[*it].push_back(*track);
 			}
 		}
 
-		// ±éÀúµÚ¶ş´ÎÎ´³É¹¦Æ¥ÅäµÄtrack
+		// éå†ç¬¬äºŒæ¬¡æœªæˆåŠŸåŒ¹é…çš„track
 		for (int i = 0; i < u_track.size(); i++)
 		{
-			// ÕÒ³öµÚ¶ş´ÎÎ´³É¹¦Æ¥ÅäµÄtrackÔÚr_tracked_stracksÀïÃæ
+			// æ‰¾å‡ºç¬¬äºŒæ¬¡æœªæˆåŠŸåŒ¹é…çš„trackåœ¨r_tracked_stracksé‡Œé¢
 			STrack* track = r_tracked_stracks[u_track[i]];
-			// Èç¹ûstate²»ÊÇLost,½«Æätrack±êÎªlost
+			// å¦‚æœstateä¸æ˜¯Lost,å°†å…¶trackæ ‡ä¸ºlost
 			if (track->state != TrackState::Lost)
 			{
 				track->mark_lost();
-				lost_stracks[cls_id].push_back(*track);
+				lost_stracks[*it].push_back(*track);
 			}
 		}
 
 		// Deal with unconfirmed tracks, usually tracks with only one beginning frame
-		// ´¦ÀíÄÇĞ©¸ßÖÃĞÅ¶Èµ«ÊÇÎ´³É¹¦Æ¥ÅäµÄÄ¿±ê¿ò
+		// å¤„ç†é‚£äº›é«˜ç½®ä¿¡åº¦ä½†æ˜¯æœªæˆåŠŸåŒ¹é…çš„ç›®æ ‡æ¡†
 		detections.clear();
 		detections.assign(detections_cp.begin(), detections_cp.end());
 
-		// ¼ÆËãÆäÓëÏÈÇ°stateÎªÎ´×·×Ù×´Ì¬µÄtrack
+		// è®¡ç®—å…¶ä¸å…ˆå‰stateä¸ºæœªè¿½è¸ªçŠ¶æ€çš„track
 		dists.clear();
-		dists = iou_distance(unconfirmed[cls_id], detections, dist_size, dist_size_size);
+		dists = iou_distance(unconfirmed[*it], detections, dist_size, dist_size_size);
 
 		matches.clear();
 		std::vector<int> u_unconfirmed;
@@ -334,84 +336,84 @@ std::unordered_map<int, std::vector<STrack>> BYTETracker::updateMCMOT(std::vecto
 
 		for (int i = 0; i < matches.size(); i++)
 		{
-			STrack* track = unconfirmed[cls_id][matches[i][0]];
+			STrack* track = unconfirmed[*it][matches[i][0]];
 			STrack* det = &detections[matches[i][1]];
-			// ¸üĞÂdet£¬¸³Óèframe_id
+			// æ›´æ–°detï¼Œèµ‹äºˆframe_id
 			track->update(*det, this->m_frame_id);
-			// ½«track·Åµ½activated_stracks¹¤×÷
-			activated_stracks[cls_id].push_back(*track);
+			// å°†trackæ”¾åˆ°activated_strackså·¥ä½œ
+			activated_stracks[*it].push_back(*track);
 		}
 
 		for (int i = 0; i < u_unconfirmed.size(); i++)
 		{
-			STrack* track = unconfirmed[cls_id][u_unconfirmed[i]];
+			STrack* track = unconfirmed[*it][u_unconfirmed[i]];
 			track->mark_removed();
-			removed_stracks[cls_id].push_back(*track);
+			removed_stracks[*it].push_back(*track);
 		}
 
 		////////////////// Step 4: Init new stracks //////////////////
-		// Õë¶ÔÄÇĞ©¼¸´ÎÎ´³É¹¦Æ¥ÅäµÄÄ¿±ê¿ò£¬Èç¹û¸ÃÄ¿±ê¿òµÄÖÃĞÅ¶È¸ßÓÚÒ»¶¨ãĞÖµ£¬½«Æä·Åµ½activated_stracks
+		// é’ˆå¯¹é‚£äº›å‡ æ¬¡æœªæˆåŠŸåŒ¹é…çš„ç›®æ ‡æ¡†ï¼Œå¦‚æœè¯¥ç›®æ ‡æ¡†çš„ç½®ä¿¡åº¦é«˜äºä¸€å®šé˜ˆå€¼ï¼Œå°†å…¶æ”¾åˆ°activated_stracks
 		for (int i = 0; i < u_detection.size(); i++)
 		{
 			STrack* track = &detections[u_detection[i]];
 			if (track->score < this->m_new_track_thresh)
 				continue;
 			track->activate(this->m_kalman_filter, this->m_frame_id);
-			activated_stracks[cls_id].push_back(*track);
+			activated_stracks[*it].push_back(*track);
 		}
 
 		////////////////// Step 5: Update state //////////////////
-		// ±éÀúÄÇĞ©ÒÑ¾­Ê§×·µÄtrack£¬½«ÄÇĞ©Ê§×·ÆµÂÊ´óÓÚãĞÖµµÄtrack·Åµ½removed_stracks
-		for (int i = 0; i < this->m_lost_stracks_dict[cls_id].size(); i++)
+		// éå†é‚£äº›å·²ç»å¤±è¿½çš„trackï¼Œå°†é‚£äº›å¤±è¿½é¢‘ç‡å¤§äºé˜ˆå€¼çš„trackæ”¾åˆ°removed_stracks
+		for (int i = 0; i < this->m_lost_stracks_dict[*it].size(); i++)
 		{
-			STrack& track = this->m_lost_stracks_dict[cls_id][i];
+			STrack& track = this->m_lost_stracks_dict[*it][i];
 			if (this->m_frame_id - track.end_frame() > this->m_max_time_lost)
 			{
 				track.mark_removed();
-				removed_stracks[cls_id].push_back(track);
+				removed_stracks[*it].push_back(track);
 			}
 		}
 
-		// ±éÀúÄÇĞ©tracked_stack
-		for (int i = 0; i < this->m_tracked_stracks_dict[cls_id].size(); i++)
+		// éå†é‚£äº›tracked_stack
+		for (int i = 0; i < this->m_tracked_stracks_dict[*it].size(); i++)
 		{
-			if (this->m_tracked_stracks_dict[cls_id][i].state == TrackState::Tracked)
+			if (this->m_tracked_stracks_dict[*it][i].state == TrackState::Tracked)
 			{
-				tracked_stracks_swap.push_back(this->m_tracked_stracks_dict[cls_id][i]);
+				tracked_stracks_swap.push_back(this->m_tracked_stracks_dict[*it][i]);
 			}
 		}
-		this->m_tracked_stracks_dict[cls_id].clear();
-		this->m_tracked_stracks_dict[cls_id].assign(tracked_stracks_swap.begin(), tracked_stracks_swap.end());
+		this->m_tracked_stracks_dict[*it].clear();
+		this->m_tracked_stracks_dict[*it].assign(tracked_stracks_swap.begin(), tracked_stracks_swap.end());
 
-		this->m_tracked_stracks_dict[cls_id] = joint_stracks(this->m_tracked_stracks_dict[cls_id], activated_stracks[cls_id]);
-		this->m_tracked_stracks_dict[cls_id] = joint_stracks(this->m_tracked_stracks_dict[cls_id], refind_stracks[cls_id]);
+		this->m_tracked_stracks_dict[*it] = joint_stracks(this->m_tracked_stracks_dict[*it], activated_stracks[*it]);
+		this->m_tracked_stracks_dict[*it] = joint_stracks(this->m_tracked_stracks_dict[*it], refind_stracks[*it]);
 
 		//std::cout << activated_stracks.size() << std::endl;
-		this->m_lost_stracks_dict[cls_id] = sub_stracks(this->m_lost_stracks_dict[cls_id], this->m_tracked_stracks_dict[cls_id]);
-		for (int i = 0; i < lost_stracks[cls_id].size(); i++)
+		this->m_lost_stracks_dict[*it] = sub_stracks(this->m_lost_stracks_dict[*it], this->m_tracked_stracks_dict[*it]);
+		for (int i = 0; i < lost_stracks[*it].size(); i++)
 		{
-			this->m_lost_stracks_dict[cls_id].push_back(lost_stracks[cls_id][i]);
+			this->m_lost_stracks_dict[*it].push_back(lost_stracks[*it][i]);
 		}
 
-		this->m_lost_stracks_dict[cls_id] = sub_stracks(this->m_lost_stracks_dict[cls_id], this->m_removed_stracks_dict[cls_id]);
-		for (int i = 0; i < removed_stracks[cls_id].size(); i++)
+		this->m_lost_stracks_dict[*it] = sub_stracks(this->m_lost_stracks_dict[*it], this->m_removed_stracks_dict[*it]);
+		for (int i = 0; i < removed_stracks[*it].size(); i++)
 		{
-			this->m_removed_stracks_dict[cls_id].push_back(removed_stracks[cls_id][i]);
+			this->m_removed_stracks_dict[*it].push_back(removed_stracks[*it][i]);
 		}
 
-		remove_duplicate_stracks(resa, resb, this->m_tracked_stracks_dict[cls_id], this->m_lost_stracks_dict[cls_id]);
+		remove_duplicate_stracks(resa, resb, this->m_tracked_stracks_dict[*it], this->m_lost_stracks_dict[*it]);
 
-		this->m_tracked_stracks_dict[cls_id].clear();
-		this->m_tracked_stracks_dict[cls_id].assign(resa.begin(), resa.end());
+		this->m_tracked_stracks_dict[*it].clear();
+		this->m_tracked_stracks_dict[*it].assign(resa.begin(), resa.end());
 
-		this->m_lost_stracks_dict[cls_id].clear();
-		this->m_lost_stracks_dict[cls_id].assign(resb.begin(), resb.end());
+		this->m_lost_stracks_dict[*it].clear();
+		this->m_lost_stracks_dict[*it].assign(resb.begin(), resb.end());
 
-		for (int i = 0; i < this->m_tracked_stracks_dict[cls_id].size(); i++)
+		for (int i = 0; i < this->m_tracked_stracks_dict[*it].size(); i++)
 		{
-			if (this->m_tracked_stracks_dict[cls_id][i].is_activated)
+			if (this->m_tracked_stracks_dict[*it][i].is_activated)
 			{
-				output_stracks[cls_id].push_back(this->m_tracked_stracks_dict[cls_id][i]);
+				output_stracks[*it].push_back(this->m_tracked_stracks_dict[*it][i]);
 			}
 		}
 	}
@@ -443,7 +445,7 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 
 	STrack::init_trackid_dict(this->m_N_CLASSES);
 
-	// ¶Ô¼ì²â³öµÄÄ¿±ê¿ò½øĞĞ´¦Àí
+	// å¯¹æ£€æµ‹å‡ºçš„ç›®æ ‡æ¡†è¿›è¡Œå¤„ç†
 	if (objects.size() > 0)
 	{
 		for (int i = 0; i < objects.size(); i++)
@@ -457,7 +459,7 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 
 			const float& score = objects[i].confidence;
 
-			// ÏÈ¸ù¾İtrack_thresh½«Ä¿±ê¿ò·ÖÎª¸ßÖÃĞÅ¶ÈÄ¿±ê¿òºÍµÍÖÃĞÅ¶ÈÄ¿±ê¿ò
+			// å…ˆæ ¹æ®track_threshå°†ç›®æ ‡æ¡†åˆ†ä¸ºé«˜ç½®ä¿¡åº¦ç›®æ ‡æ¡†å’Œä½ç½®ä¿¡åº¦ç›®æ ‡æ¡†
 			STrack strack(STrack::tlbr_to_tlwh(tlbr_), score, objects[i].classId);
 			if (score >= this->m_high_det_thresh)
 			{
@@ -470,90 +472,90 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 		}
 	}
 
-	// Add newly detected tracklets to tracked_stracks ½«ĞÂ¼ì²â³öµÄ¹ì¼£¼ÓÈëµ½×·×ÙµÄ¹ì¼£
+	// Add newly detected tracklets to tracked_stracks å°†æ–°æ£€æµ‹å‡ºçš„è½¨è¿¹åŠ å…¥åˆ°è¿½è¸ªçš„è½¨è¿¹
 	for (int i = 0; i < this->m_tracked_stracks.size(); i++)
 	{
-		// Èç¹û¹ì¼£Ã»ÓĞ±»¼¤»î£¬½«¸Ã¹ì¼£·Åµ½unconfirmedÀïÃæ
+		// å¦‚æœè½¨è¿¹æ²¡æœ‰è¢«æ¿€æ´»ï¼Œå°†è¯¥è½¨è¿¹æ”¾åˆ°unconfirmedé‡Œé¢
 		if (!this->m_tracked_stracks[i].is_activated)
 			unconfirmed.push_back(&this->m_tracked_stracks[i]);
-		// Èç¹û¼¤»îÁË£¬Ö±½Ó½«Æä·Åµ½tracked_stracksÖĞµÄ
+		// å¦‚æœæ¿€æ´»äº†ï¼Œç›´æ¥å°†å…¶æ”¾åˆ°tracked_stracksä¸­çš„
 		else
 			tracked_stracks.push_back(&this->m_tracked_stracks[i]);
 	}
 
 	////////////////// Step 2: First association, with IoU //////////////////
-	// ½«ÄÇĞ©Ê§È¥×·×ÙµÄtrack(ÉÙÓÚ30Ö¡)·Åµ½ĞèÒª×·×ÙµÄstracksµÄ¼¯ºÏÖĞ
+	// å°†é‚£äº›å¤±å»è¿½è¸ªçš„track(å°‘äº30å¸§)æ”¾åˆ°éœ€è¦è¿½è¸ªçš„stracksçš„é›†åˆä¸­
 	strack_pool = joint_stracks(tracked_stracks, this->m_lost_stracks);
-	STrack::multi_predict(strack_pool, this->m_kalman_filter);  // Ê¹ÓÃ¿¨¶ûÂüÂË²¨Ô¤²âÏÂÒ»Ö¡Ä¿±ê¿ò³öÏÖµÄÎ»ÖÃ
+	STrack::multi_predict(strack_pool, this->m_kalman_filter);  // ä½¿ç”¨å¡å°”æ›¼æ»¤æ³¢é¢„æµ‹ä¸‹ä¸€å¸§ç›®æ ‡æ¡†å‡ºç°çš„ä½ç½®
 
 	std::vector< std::vector<float> > dists;
 	int dist_size = 0, dist_size_size = 0;
-	// ¼ÆËãÔ¤²âµÄÄ¿±ê¿òºÍ¸ßÖÃĞÅ¶ÈÄ¿±ê¿òÖ®¼äµÄiou, »ñÈ¡¾àÀë
+	// è®¡ç®—é¢„æµ‹çš„ç›®æ ‡æ¡†å’Œé«˜ç½®ä¿¡åº¦ç›®æ ‡æ¡†ä¹‹é—´çš„iou, è·å–è·ç¦»
 	dists = iou_distance(strack_pool, detections, dist_size, dist_size_size);
 
-	// Ê¹ÓÃĞÙÑÀÀûËã·¨¶ÔÔ¤²âÄ¿±ê¿òºÍ¸ßÖÃĞÅ¶ÈÄ¿±ê¿ò½øĞĞÆ¥Åä
+	// ä½¿ç”¨åŒˆç‰™åˆ©ç®—æ³•å¯¹é¢„æµ‹ç›®æ ‡æ¡†å’Œé«˜ç½®ä¿¡åº¦ç›®æ ‡æ¡†è¿›è¡ŒåŒ¹é…
 	std::vector< std::vector<int> > matches;
 	std::vector<int> u_track, u_detection;
 	linear_assignment(dists, dist_size, dist_size_size, this->m_high_match_thresh, matches, u_track, u_detection);
 
-	// ÏÈ±éÀúÄÇĞ©ÒÑ¾­³É¹¦Æ¥ÅäµÄÄ¿±ê¿ò
+	// å…ˆéå†é‚£äº›å·²ç»æˆåŠŸåŒ¹é…çš„ç›®æ ‡æ¡†
 	for (int i = 0; i < matches.size(); i++)
 	{
 		STrack* track = strack_pool[matches[i][0]];
 		STrack* det = &detections[matches[i][1]];
-		// Èç¹ûÆ¥ÅäµÄtrackÒÑ¾­±»×·×Ù¹ı
+		// å¦‚æœåŒ¹é…çš„trackå·²ç»è¢«è¿½è¸ªè¿‡
 		if (track->state == TrackState::Tracked)
 		{
-			// ¸üĞÂdet£¬¸³Óèframe_id
+			// æ›´æ–°detï¼Œèµ‹äºˆframe_id
 			track->update(*det, this->m_frame_id);
-			// ½«track·Åµ½activated_stracks¹¤×÷
+			// å°†trackæ”¾åˆ°activated_strackså·¥ä½œ
 			activated_stracks.push_back(*track);
 		}
 		else
 		{
 			track->re_activate(*det, this->m_frame_id, false);
-			// ½«ÖØĞÂ±»Æ¥ÅäµÄstrack·Åµ½refind_stracksÖĞ
+			// å°†é‡æ–°è¢«åŒ¹é…çš„strackæ”¾åˆ°refind_stracksä¸­
 			refind_stracks.push_back(*track);
 		}
 	}
 
 	////////////////// Step 3: Second association, using low score dets //////////////////
-	// ±éÀúÄÇĞ©¸ßÖÃĞÅ¶È¿òÖĞÎ´Æ¥ÅäµÄÄ¿±ê¿ò£¬½«Æä·Åµ½detections_cpÖĞ
+	// éå†é‚£äº›é«˜ç½®ä¿¡åº¦æ¡†ä¸­æœªåŒ¹é…çš„ç›®æ ‡æ¡†ï¼Œå°†å…¶æ”¾åˆ°detections_cpä¸­
 	for (int i = 0; i < u_detection.size(); i++)
 	{
 		detections_cp.push_back(detections[u_detection[i]]);
 	}
-	// ´¦ÀíÄÇĞ©µÍÖÃĞÅ¶ÈµÄÄ¿±ê¿ò
+	// å¤„ç†é‚£äº›ä½ç½®ä¿¡åº¦çš„ç›®æ ‡æ¡†
 	detections.clear();
 	detections.assign(detections_low.begin(), detections_low.end());
 
-	// ±éÀúÄÇĞ©ÏÈÇ°Î´Æ¥ÅäµÄtrack
+	// éå†é‚£äº›å…ˆå‰æœªåŒ¹é…çš„track
 	for (int i = 0; i < u_track.size(); i++)
 	{
-		// Èç¹ûµ±Ç°Î´Æ¥ÅäµÄtrackµÄ×´Ì¬ÏÈÇ°Îªtracked×´Ì¬£¨¾ÍÊÇÏÈÇ°ÒÑ¾­³É¹¦Æ¥ÅäÁË£©
+		// å¦‚æœå½“å‰æœªåŒ¹é…çš„trackçš„çŠ¶æ€å…ˆå‰ä¸ºtrackedçŠ¶æ€ï¼ˆå°±æ˜¯å…ˆå‰å·²ç»æˆåŠŸåŒ¹é…äº†ï¼‰
 		if (strack_pool[u_track[i]]->state == TrackState::Tracked)
 		{
-			// ½«Æä·Åµ½r_tracked_stracksÖĞ
+			// å°†å…¶æ”¾åˆ°r_tracked_stracksä¸­
 			r_tracked_stracks.push_back(strack_pool[u_track[i]]);
 		}
 	}
 
-	// ¼ÆËãÏÈÇ°Î´³É¹¦Æ¥ÅäµÄtrackºÍµÍÖÃĞÅ¶ÈÄ¿±ê¿òÖ®¼äµÄiou_distance
+	// è®¡ç®—å…ˆå‰æœªæˆåŠŸåŒ¹é…çš„trackå’Œä½ç½®ä¿¡åº¦ç›®æ ‡æ¡†ä¹‹é—´çš„iou_distance
 	dists.clear();
 	dists = iou_distance(r_tracked_stracks, detections, dist_size, dist_size_size);
 
-	// Ê¹ÓÃĞÙÑÀÀûËã·¨½øĞĞÆ¥Åä
+	// ä½¿ç”¨åŒˆç‰™åˆ©ç®—æ³•è¿›è¡ŒåŒ¹é…
 	matches.clear();
 	u_track.clear();
 	u_detection.clear();
 	linear_assignment(dists, dist_size, dist_size_size, 0.5, matches, u_track, u_detection);
 
-	// ±éÀúÄÇĞ©³É¹¦Æ¥ÅäµÄtrackºÍÄ¿±ê¿ò
+	// éå†é‚£äº›æˆåŠŸåŒ¹é…çš„trackå’Œç›®æ ‡æ¡†
 	for (int i = 0; i < matches.size(); i++)
 	{
 		STrack* track = r_tracked_stracks[matches[i][0]];
 		STrack* det = &detections[matches[i][1]];
-		// Èç¹ûÏÈÇ°Î´Æ¥Åätrack×´Ì¬ÊÇtrackedµÄ×´Ì¬£¬½«trackÖØĞÂ¼¤»î
+		// å¦‚æœå…ˆå‰æœªåŒ¹é…trackçŠ¶æ€æ˜¯trackedçš„çŠ¶æ€ï¼Œå°†tracké‡æ–°æ¿€æ´»
 		if (track->state == TrackState::Tracked)
 		{
 			track->update(*det, this->m_frame_id);
@@ -566,12 +568,12 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 		}
 	}
 
-	// ±éÀúµÚ¶ş´ÎÎ´³É¹¦Æ¥ÅäµÄtrack
+	// éå†ç¬¬äºŒæ¬¡æœªæˆåŠŸåŒ¹é…çš„track
 	for (int i = 0; i < u_track.size(); i++)
 	{
-		// ÕÒ³öµÚ¶ş´ÎÎ´³É¹¦Æ¥ÅäµÄtrackÔÚr_tracked_stracksÀïÃæ
+		// æ‰¾å‡ºç¬¬äºŒæ¬¡æœªæˆåŠŸåŒ¹é…çš„trackåœ¨r_tracked_stracksé‡Œé¢
 		STrack* track = r_tracked_stracks[u_track[i]];
-		// Èç¹ûstate²»ÊÇLost,½«Æätrack±êÎªlost
+		// å¦‚æœstateä¸æ˜¯Lost,å°†å…¶trackæ ‡ä¸ºlost
 		if (track->state != TrackState::Lost)
 		{
 			track->mark_lost();
@@ -580,11 +582,11 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 	}
 
 	// Deal with unconfirmed tracks, usually tracks with only one beginning frame
-	// ´¦ÀíÄÇĞ©¸ßÖÃĞÅ¶Èµ«ÊÇÎ´³É¹¦Æ¥ÅäµÄÄ¿±ê¿ò
+	// å¤„ç†é‚£äº›é«˜ç½®ä¿¡åº¦ä½†æ˜¯æœªæˆåŠŸåŒ¹é…çš„ç›®æ ‡æ¡†
 	detections.clear();
 	detections.assign(detections_cp.begin(), detections_cp.end());
 
-	// ¼ÆËãÆäÓëÏÈÇ°stateÎªÎ´×·×Ù×´Ì¬µÄtrack
+	// è®¡ç®—å…¶ä¸å…ˆå‰stateä¸ºæœªè¿½è¸ªçŠ¶æ€çš„track
 	dists.clear();
 	dists = iou_distance(unconfirmed, detections, dist_size, dist_size_size);
 
@@ -593,14 +595,14 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 	u_detection.clear();
 	linear_assignment(dists, dist_size, dist_size_size, 0.7, matches, u_unconfirmed, u_detection);
 
-	// Èç¹û³É¹¦Æ¥Åä£¬½«Æä×´Ì¬¸ÄÎªtracked£¬¼ÓÈëµ½activated_stracksÖĞ
+	// å¦‚æœæˆåŠŸåŒ¹é…ï¼Œå°†å…¶çŠ¶æ€æ”¹ä¸ºtrackedï¼ŒåŠ å…¥åˆ°activated_stracksä¸­
 	for (int i = 0; i < matches.size(); i++)
 	{
 		unconfirmed[matches[i][0]]->update(detections[matches[i][1]], this->m_frame_id);
 		activated_stracks.push_back(*unconfirmed[matches[i][0]]);
 	}
 
-	// Õë¶ÔÄÇĞ©¼¸´ÎÎ´³É¹¦Æ¥ÅäµÄtrack½«Æä±êÖ¾ÎªÒÆ³ı
+	// é’ˆå¯¹é‚£äº›å‡ æ¬¡æœªæˆåŠŸåŒ¹é…çš„trackå°†å…¶æ ‡å¿—ä¸ºç§»é™¤
 	for (int i = 0; i < u_unconfirmed.size(); i++)
 	{
 		STrack* track = unconfirmed[u_unconfirmed[i]];
@@ -609,7 +611,7 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 	}
 
 	////////////////// Step 4: Init new stracks //////////////////
-	// Õë¶ÔÄÇĞ©¼¸´ÎÎ´³É¹¦Æ¥ÅäµÄÄ¿±ê¿ò£¬Èç¹û¸ÃÄ¿±ê¿òµÄÖÃĞÅ¶È¸ßÓÚÒ»¶¨ãĞÖµ£¬½«Æä·Åµ½activated_stracks
+	// é’ˆå¯¹é‚£äº›å‡ æ¬¡æœªæˆåŠŸåŒ¹é…çš„ç›®æ ‡æ¡†ï¼Œå¦‚æœè¯¥ç›®æ ‡æ¡†çš„ç½®ä¿¡åº¦é«˜äºä¸€å®šé˜ˆå€¼ï¼Œå°†å…¶æ”¾åˆ°activated_stracks
 	for (int i = 0; i < u_detection.size(); i++)
 	{
 		STrack* track = &detections[u_detection[i]];
@@ -620,7 +622,7 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 	}
 
 	////////////////// Step 5: Update state //////////////////
-	// ±éÀúÄÇĞ©ÒÑ¾­Ê§×·µÄtrack£¬½«ÄÇĞ©Ê§×·ÆµÂÊ´óÓÚãĞÖµµÄtrack·Åµ½removed_stracks
+	// éå†é‚£äº›å·²ç»å¤±è¿½çš„trackï¼Œå°†é‚£äº›å¤±è¿½é¢‘ç‡å¤§äºé˜ˆå€¼çš„trackæ”¾åˆ°removed_stracks
 	for (int i = 0; i < this->m_lost_stracks.size(); i++)
 	{
 		if (this->m_frame_id - this->m_lost_stracks[i].end_frame() > this->m_max_time_lost)
@@ -630,7 +632,7 @@ std::vector<STrack> BYTETracker::update(const std::vector<detect_result>& object
 		}
 	}
 
-	// ±éÀúÄÇĞ©tracked_stack
+	// éå†é‚£äº›tracked_stack
 	for (int i = 0; i < this->m_tracked_stracks.size(); i++)
 	{
 		if (this->m_tracked_stracks[i].state == TrackState::Tracked)
@@ -683,7 +685,7 @@ void BYTETracker::initMappings()
 	{
 		CLASS2ID[CLASSES[i]] = i;
 		ID2CLASS[i] = CLASSES[i];
-	// printf("ID2CLASS[i]: %s\n", ID2CLASS[i]);
+		// printf("ID2CLASS[i]: %s\n", ID2CLASS[i]);
 	}
 }
 
@@ -742,9 +744,9 @@ void BYTETracker::drawTrackMC(const std::unordered_map<int, std::vector<STrack>>
 	int total_obj_count = 0;
 
 	// hash table traversing
-	for (auto it = output_stracks_dict.begin(); it != output_stracks_dict.end(); it++)
+	for (std::set<int>::iterator it = cls_id_set.begin(); it != cls_id_set.end(); it++) 
 	{
-		const std::vector<STrack>& output_stracks = it->second;
+		const std::vector<STrack>& output_stracks = output_stracks_dict.at(*it);
 		total_obj_count += (int)output_stracks.size();
 		for (int i = 0; i < output_stracks.size(); ++i)
 		{
@@ -756,7 +758,8 @@ void BYTETracker::drawTrackMC(const std::unordered_map<int, std::vector<STrack>>
 
 			// Draw class name
 			cv::putText(img,
-				ID2CLASS[output_stracks[i].class_id],
+				// ID2CLASS[output_stracks[i].class_id],
+				ID2CLASS[*it],
 				cv::Point((int)tlwh[0], (int)tlwh[1] - 5),
 				0,
 				0.6,
