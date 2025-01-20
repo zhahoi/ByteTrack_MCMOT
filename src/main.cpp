@@ -1,8 +1,3 @@
-/*!
-    @Description : https://github.com/shaoshengsong/
-    @Author      : shaoshengsong
-    @Date        : 2022-09-23 02:52:22
-*/
 #include <fstream>
 #include <sstream>
 #include <chrono>
@@ -13,7 +8,7 @@
 #include "FeatureTensor.h"
 #include "BYTETracker.h" //bytetrack
 
-//Deep SORT parameter
+// Deep SORT parameter
 const int nn_budget = 100;
 const float max_cosine_distance = 0.2;
 
@@ -29,7 +24,6 @@ const float HIGH_MATCH_THRESH(0.8f);  // 0.8f first match threshold
 const float LOW_MATCH_THRESH(0.5f);  // 0.5f second match threshold
 const float UNCONFIRMED_MATCH_THRESH(0.7f);  // 0.7: unconfirmed track match to remain dets
 
-
 int main(int argc, char* argv[])
 {
     //bytetrack
@@ -40,7 +34,7 @@ int main(int argc, char* argv[])
         UNCONFIRMED_MATCH_THRESH);
 
     //-----------------------------------------------------------------------
-    // º”‘ÿ¿‡±√˚≥∆
+    // Âä†ËΩΩÁ±ªÂà´ÂêçÁß∞
     std::vector<std::string> classes;
     std::string file = "C:/CPlusPlus/MCMOT_ByteTrack/weights/coco_80_labels_list.txt";
     std::ifstream ifs(file);
@@ -55,7 +49,6 @@ int main(int argc, char* argv[])
     std::cout << "classes: " << classes.size() << std::endl;
   
     std::shared_ptr<YOLOv5Detector> detector(new YOLOv5Detector());
-
     detector->init(k_detect_model_path);
 
     std::cout << "begin read video" << std::endl;
@@ -87,21 +80,23 @@ int main(int argc, char* argv[])
 
         num_frames++;
         // detecting
-        //Second/Millisecond/Microsecond  √Îs/∫¡√Îms/Œ¢√Îus
         auto start = std::chrono::system_clock::now();
         detector->detect(frame, results);
         auto end = std::chrono::system_clock::now();
-        auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();//ms
+        auto total_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count(); //ms
         std::cout << "classes size: " << classes.size() << "," << "results size :" << results.size() << "," << "num_frames size:" << num_frames << std::endl;
-        
-        // draw detector result
-        // detector->draw_frame(frame, results);
+
+        // Â§ÑÁêÜ detection results
+        if (results.empty()) {
+            std::cout << "No detection results in this frame." << std::endl;
+            continue;
+        }
 
         // tracking
         auto t_start = std::chrono::system_clock::now();
 
-        std::vector<detect_result> objects;  // ¥Ê∑≈ºÏ≤‚øÚ
-        // ’‚¿Ô÷ª’Î∂‘”⁄µ•∏ˆ¿‡±
+        std::vector<detect_result> objects;  // Â≠òÊîæÊ£ÄÊµãÊ°Ü
+        // ËøôÈáåÂè™ÈíàÂØπ‰∫éÂçï‰∏™Á±ªÂà´
         for (detect_result dr : results)
         {
             if (NUM_CLASSES == 1)
@@ -111,15 +106,27 @@ int main(int argc, char* argv[])
                     objects.push_back(dr);
                 }
             }
-            // ’Î∂‘∂‡¿‡±∏˙◊Ÿ
+            // ÈíàÂØπÂ§öÁ±ªÂà´Ë∑üË∏™
             else if (NUM_CLASSES > 1)  // Multi-class tracking output
             {
-               
                 if (dr.classId == 2 || dr.classId == 5 || dr.classId == 9)
                 {
                     objects.push_back(dr);
                 }
             }
+
+            // Â¢ûÂä†Á±ªÂêçËÆøÈóÆÊó∂ÁöÑÁ¥¢ÂºïËåÉÂõ¥Ê£ÄÊü•
+            if (dr.classId >= 0 && dr.classId < classes.size()) {
+                std::cout << "Class name: " << classes[dr.classId] << " (Class ID: " << dr.classId << ")\n";
+            } else {
+                std::cerr << "Error: classId " << dr.classId << " out of range! Total classes: " << classes.size() << std::endl;
+            }
+        }
+
+        // Á°Æ‰øùÊ£ÄÊµãÊ°ÜÊúâÊïàÔºåÈÅøÂÖçÂá∫Áé∞Á©∫ÊàñÊó†ÊïàÊï∞ÊçÆ
+        if (objects.empty()) {
+            std::cout << "No valid objects for tracking." << std::endl;
+            continue;
         }
 
         // ---------- Update tracking results of current frame
@@ -159,7 +166,6 @@ int main(int argc, char* argv[])
         }
 
         results.clear();
-
     }
     capture.release();
     video.release();
